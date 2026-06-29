@@ -1,6 +1,6 @@
 # customer-segment
 
-## Khởi tạo & kích hoạt môi trường nào
+## Khởi tạo & kích hoạt môi trường ảo
 
 1. Truy cập folder customer-segment
 
