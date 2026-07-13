@@ -10,4 +10,13 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
-Thumbs.db
+Thumbs.db.virtual_documents/
+anaconda_projects/
+__pycache__/
+*.pyc
+venv/
+.DS_Store
+
+.virtual_documents/
+streamlit_app/data/prediction_history.csv
+streamlit_app/**/__pycache__/
