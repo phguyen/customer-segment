@@ -1,0 +1,1 @@
+{"_timestamp":1.7840321181594949e+09,"_step":8,"num_clusters_k":10,"_wandb":{"runtime":21},"_runtime":21,"inertia":1914.4525291375942,"silhouette_score":0.28078309600497,"davies_bouldin_index":1.0240590500195288}
