@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 import json as _json
 
 # Import các hàm tương tác Cơ sở dữ liệu từ thư mục database
-# from backend.database.connection import log_to_db, get_prediction_history_from_db
+from backend.database.connection import log_to_db, get_prediction_history_from_db
 
 # Khởi tạo APIRouter để nhúng vào main.py
 router = APIRouter()
@@ -120,13 +120,13 @@ def predict_customer_segment(data: SinglePredictRequest):
             persona_info = {"persona": f"Nhóm khách hàng {cluster_id}", "desc": "N/A"}
 
         # Bước 3.6: Gọi hàm lưu lịch sử dự đoán vào PostgreSQL
-        # log_to_db(
-        #     recency=float(recency_days),
-        #     frequency=data.frequency,
-        #     monetary=data.monetary,
-        #     cluster_id=cluster_id,
-        #     cluster_label=persona_info["persona"]
-        # )
+        log_to_db(
+            recency=float(recency_days),
+            frequency=data.frequency,
+            monetary=data.monetary,
+            cluster_id=cluster_id,
+            cluster_label=persona_info["persona"]
+        )
         
         return {
             "cluster_id": cluster_id,
@@ -142,13 +142,11 @@ def predict_customer_segment(data: SinglePredictRequest):
 
 @router.get("/history")
 def get_prediction_history():
-    """
-    Endpoint 4: Truy xuất danh sách lịch sử những khách hàng đã từng được tính toán từ DB
-    """
-    # try:
-    #     # Gọi hàm đọc database từ tệp connection.py
-    #     history_rows = get_prediction_history_from_db()
-    #     return {"history": history_rows}
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail=f"Lỗi khi truy xuất lịch sử từ Database: {str(e)}")
-    pass
+    try:
+        history_rows = get_prediction_history_from_db()
+        return {"history": history_rows}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi khi truy xuất lịch sử: {str(e)}"
+        )
