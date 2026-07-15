@@ -1,18 +1,18 @@
 {
-  "3": {
-    "persona": "Khách hàng VIP",
-    "description": "Khách hàng VIP với tần suất mua hàng cao và giá trị đơn hàng cao, cần chiến lược chăm sóc đặc biệt và ưu đãi để giữ chân"
-  },
   "0": {
     "persona": "Khách hàng mới",
-    "description": "Khách hàng mới với tần suất mua thấp, cần chiến lược chăm sóc và khuyến mãi để tăng cường tương tác"
-  },
-  "2": {
-    "persona": "Khách hàng trung thành",
-    "description": "Khách hàng trung thành với tần suất mua hàng cao nhưng giá trị đơn hàng thấp, cần chiến lược chăm sóc và nâng cao giá trị đơn hàng"
+    "description": "Đây là nhóm khách hàng tiềm năng mới gia nhập, cần được khuyến khích mua thêm."
   },
   "1": {
-    "persona": "Khách hàng thưa thớt",
-    "description": "Khách hàng mua hàng thưa thớt với giá trị đơn hàng thấp, cần chiến lược tái kích hoạt và chăm sóc để tăng cường mua hàng"
+    "persona": "Khách hàng có nguy cơ rời bỏ",
+    "description": " Đây là nhóm khách hàng đã rời bỏ hệ thống, cần các chiến dịch 'win-back' mạnh mẽ."
+  },
+  "2": {
+    "persona": "Khách hàng trung thành thấp",
+    "description": "Đây là nhóm khách hàng cần được chăm sóc thêm để nâng cấp lên thành khách hàng trung thành."
+  },
+  "3": {
+    "persona": "Khách hàng VIP",
+    "description": "Đây là nhóm khách hàng giá trị cao nhất, cần được ưu tiên chăm sóc đặc biệt."
   }
 }
