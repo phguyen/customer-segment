@@ -21,7 +21,7 @@
 ## Cấu trúc dự án
 customer-segment/ <br>
 ├── backend/                # Tầng API & Xử lý logic nghiệp vụ <br>
-│   ├── database/           # Quản lý kết nối & truy vấn CSDL PostgreSQL <br>
+│   ├── database/           # Quản lý kết nối & truy vấn CSDL MySQL <br>
 │   ├── main.py             # Entry point, khởi tạo ứng dụng FastAPI<br>
 │   └── router.py           # Định nghĩa các endpoint (Health, Model-info, Predict, History) <br>
 ├── frontend/               # Tầng giao diện người dùng (Streamlit Dashboard) <br>
