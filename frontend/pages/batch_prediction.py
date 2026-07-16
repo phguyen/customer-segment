@@ -240,12 +240,6 @@ st.caption(
     "tạo bảng RFM và phân nhóm nhiều khách hàng cùng lúc."
 )
 
-st.info(
-    "Demo Mode: Hệ thống đang sử dụng logic phân cụm minh họa. "
-    "Phần preprocessing đã được xây dựng theo pipeline của nhóm."
-)
-
-
 # =========================================================
 # 6. HƯỚNG DẪN FILE
 # =========================================================

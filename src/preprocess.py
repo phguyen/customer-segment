@@ -22,26 +22,26 @@ def data_loader(file_path):
 def clean_data(df):
     print("\n=== BƯỚC 1: TIỀN XỬ LÝ & LÀM SẠCH DỮ LIỆU ===")
 
-    # 1. Loại bỏ dòng có Quantity <= 0
+    # 1. Loại bỏ các bản ghi trùng lặp hoàn toàn (Thực hiện trước khi drop cột sản phẩm)
+    before = df.shape[0]
+    df = df.drop_duplicates()
+    print(f" -> Loại bỏ dòng trùng lặp hoàn toàn: Đã xóa {before - df.shape[0]:,} dòng -> Còn {df.shape[0]:,} dòng")
+
+    # 2. Loại bỏ dòng có Quantity <= 0
     before = df.shape[0]
     df = df[df['Quantity'] > 0]
     print(f" -> Loại bỏ Quantity <= 0: Đã xóa {before - df.shape[0]:,} dòng -> Còn {df.shape[0]:,} dòng")
 
-    # 2. Loại bỏ dòng có UnitPrice <= 0
+    # 3. Loại bỏ dòng có UnitPrice <= 0
     before = df.shape[0]
     df = df[df['UnitPrice'] > 0]
     print(f" -> Loại bỏ UnitPrice <= 0: Đã xóa {before - df.shape[0]:,} dòng -> Còn {df.shape[0]:,} dòng")
 
-    # 3. Loại bỏ dòng có CustomerID rỗng hoặc ngày tháng bị lỗi (NaT)
+    # 4. Loại bỏ dòng có CustomerID rỗng hoặc ngày tháng bị lỗi (NaT)
     before = df.shape[0]
     df = df.dropna(subset=['CustomerID', 'InvoiceDate'])
     df['CustomerID'] = df['CustomerID'].astype(int)
     print(f" -> Loại bỏ dòng khuyết CustomerID/InvoiceDate: Đã xóa {before - df.shape[0]:,} dòng -> Còn {df.shape[0]:,} dòng")
-
-    # 4. Loại bỏ các bản ghi trùng lặp hoàn toàn (Thực hiện trước khi drop cột sản phẩm)
-    before = df.shape[0]
-    df = df.drop_duplicates()
-    print(f" -> Loại bỏ dòng trùng lặp hoàn toàn: Đã xóa {before - df.shape[0]:,} dòng -> Còn {df.shape[0]:,} dòng")
 
     # 5. Tính toán trường đặc trưng doanh thu: TotalPrice = Quantity * UnitPrice
     df['TotalPrice'] = df['Quantity'] * df['UnitPrice']
@@ -71,9 +71,10 @@ def build_rfm_features(df, processed_dir):
 
     print(f"Tổng số lượng khách hàng thu được: {rfm.shape[0]}")
 
-    # Lưu bảng RFM đầy đủ (Bao gồm cả các khách hàng mang giá trị cực đoan)
-    # -> Cần thiết vì train_final.py sẽ dùng file này để dự đoán cụm cho TOÀN BỘ khách hàng, kể cả outlier
-    full_rfm_path = os.path.join(processed_dir, 'customer_segmentation_full.csv')
+    # Lưu bảng RFM đầy đủ. LƯU Ý: từ khi chuyển sang CLIP outlier (không xóa khách hàng nào
+    # nữa), file này và customer_segmentation.csv sẽ có CÙNG số khách hàng -- không còn khách
+    # nào bị coi là "outlier bị loại khỏi train" nữa, chỉ có giá trị R/F/M bị kẹp về biên hợp lý.
+    full_rfm_path = os.path.join(processed_dir, 'customer_segmentation_full(1).csv')
     rfm.to_csv(full_rfm_path, index=False, encoding='utf-8-sig')
     print(f"-> Đã lưu tập dữ liệu RFM đầy đủ tại: {full_rfm_path}")
 
@@ -81,28 +82,33 @@ def build_rfm_features(df, processed_dir):
 
 
 def handle_outliers_and_transform(rfm, processed_dir):
-    print("\n=== BƯỚC 3: XỬ LÝ NGOẠI LAI & BIẾN ĐỔI CHUẨN HÓA ===")
+    print("\n=== BƯỚC 3: GIỚI HẠN NGOẠI LAI (CLIP) & BIẾN ĐỔI CHUẨN HÓA ===")
 
-    # 1. Loại bỏ Outlier bằng phương pháp khoảng tứ phân vị (IQR)
-    before_clean = rfm.shape[0]
+    # 1. Giới hạn (clip) outlier bằng phương pháp IQR - KHÔNG xóa khách hàng, chỉ kẹp giá trị
+    # cực đoan về biên [Q1 - 1.5*IQR, Q3 + 1.5*IQR]. Nhờ vậy khách hàng chi tiêu/mua sắm cực
+    # đoan vẫn được mô hình "nhìn thấy" lúc train, tâm cụm phản ánh sự tồn tại của họ thay vì
+    # coi như không có, đồng thời không cần predict riêng cho nhóm "outlier bị loại" nữa.
     cols_to_clean = ['Recency', 'Frequency', 'Monetary']
-    mask = pd.Series(True, index=rfm.index)
+    rfm_cleaned = rfm.copy()
 
     for col in cols_to_clean:
-        Q1 = rfm[col].quantile(0.25)
-        Q3 = rfm[col].quantile(0.75)
+        Q1 = rfm_cleaned[col].quantile(0.25)
+        Q3 = rfm_cleaned[col].quantile(0.75)
         IQR = Q3 - Q1
         lower_bound = Q1 - 1.5 * IQR
         upper_bound = Q3 + 1.5 * IQR
-        mask &= rfm[col].between(lower_bound, upper_bound)
 
-    rfm_cleaned = rfm[mask].reset_index(drop=True)
-    print(f" -> Loại bỏ Outlier (IQR factor=1.5): Đã xóa {before_clean - rfm_cleaned.shape[0]:,} khách hàng -> Còn {rfm_cleaned.shape[0]:,} khách hàng")
+        num_clipped = ((rfm_cleaned[col] < lower_bound) | (rfm_cleaned[col] > upper_bound)).sum()
+        rfm_cleaned[col] = rfm_cleaned[col].clip(lower=lower_bound, upper=upper_bound)
+        print(f" -> Cột '{col}': đã kẹp {num_clipped:,} giá trị cực đoan về khoảng "
+              f"[{lower_bound:.2f}, {upper_bound:.2f}]")
 
-    # Lưu bảng RFM đơn vị gốc đã loại bỏ Outlier (Phục vụ phân tích đặc điểm phân cụm sau này)
-    raw_rfm_path = os.path.join(processed_dir, 'customer_segmentation.csv')
+    print(f" -> Tổng số khách hàng (giữ nguyên, không xóa ai): {rfm_cleaned.shape[0]:,}")
+
+    # Lưu bảng RFM đơn vị gốc (đã clip) - Phục vụ phân tích đặc điểm phân cụm sau này
+    raw_rfm_path = os.path.join(processed_dir, 'customer_segmentation(1).csv')
     rfm_cleaned.to_csv(raw_rfm_path, index=False, encoding='utf-8-sig')
-    print(f"-> Đã lưu bảng RFM sạch (đơn vị gốc) tại: {raw_rfm_path}")
+    print(f"-> Đã lưu bảng RFM đã xử lý (đơn vị gốc) tại: {raw_rfm_path}")
 
     # 2. Biến đổi phân phối Log-transform (Khử lệch phải cho các thuật toán khoảng cách)
     rfm_log = rfm_cleaned[['Recency', 'Frequency', 'Monetary']].apply(np.log1p)
@@ -116,11 +122,11 @@ def handle_outliers_and_transform(rfm, processed_dir):
 
     # Đóng gói và lưu trữ đối tượng Scaler pkl để tái sử dụng (BẮT BUỘC cho inference.py sau này)
     os.makedirs('models', exist_ok=True)
-    joblib.dump(scaler, 'models/rfm_scaler.pkl')
-    print("-> Đã đóng gói và lưu bộ chuẩn hóa tại: models/rfm_scaler.pkl")
+    joblib.dump(scaler, 'models/rfm_scaler(f).pkl')
+    print("-> Đã đóng gói và lưu bộ chuẩn hóa tại: models/rfm_scaler(f).pkl")
 
     # Lưu tập dữ liệu số đã xử lý hoàn chỉnh chuẩn bị đưa vào huấn luyện mô hình học máy
-    scaled_data_path = os.path.join(processed_dir, 'customer_segmentation_scaled.csv')
+    scaled_data_path = os.path.join(processed_dir, 'customer_segmentation_scaled(1).csv')
     rfm_scaled_df.to_csv(scaled_data_path, index=False, encoding="utf-8-sig")
     print(f"-> Đã lưu tập dữ liệu số chuẩn hóa hoàn chỉnh tại: {scaled_data_path}")
 

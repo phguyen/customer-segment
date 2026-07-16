@@ -1,0 +1,8 @@
+﻿PredictionTime,PredictionType,CustomerID,LastPurchaseDate,Recency,Frequency,Monetary,Cluster,ClusterName
+2026-07-16 23:27:38,Single,CUST001,2026-07-16,0,12,90000000.0,3,Khách hàng VIP
+2026-07-16 23:31:27,Single,CUST009,2026-07-01,15,10,90000002.0,3,Khách hàng VIP
+2026-07-16 23:31:58,Batch,CUST001,2026-06-20,18,3,1850000,2,Khách hàng cần chăm sóc
+2026-07-16 23:31:58,Batch,CUST002,2025-10-10,271,1,150000,3,Khách hàng có nguy cơ rời bỏ
+2026-07-16 23:31:58,Batch,CUST003,2026-07-05,3,2,7600000,2,Khách hàng cần chăm sóc
+2026-07-16 23:31:58,Batch,CUST004,2026-03-01,129,2,1500000,2,Khách hàng cần chăm sóc
+2026-07-16 23:31:58,Batch,CUST005,2026-07-08,0,2,10000000,2,Khách hàng cần chăm sóc
