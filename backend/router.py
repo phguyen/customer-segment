@@ -16,9 +16,11 @@ router = APIRouter()
 # -------------------------------------------------------------------------
 # 1. TẢI MÔ HÌNH VÀ BỘ CHUẨN HÓA LÊN BỘ NHỚ (LOAD ONCE)
 # -------------------------------------------------------------------------
-MODEL_PATH = "models/kmeans_model.pkl"
-SCALER_PATH = "models/rfm_scaler.pkl"
+MODEL_PATH = "models/kmeans_model(f).pkl"
+SCALER_PATH = "models/rfm_scaler(f).pkl"
 PERSONA_JSON_PATH = "models/persona_mapping.json"  
+THRESHOLD_JSON_PATH = "models/cluster_distance_thresholds.json"  
+
 
 if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
     model = joblib.load(MODEL_PATH)
@@ -43,6 +45,19 @@ if os.path.exists(PERSONA_JSON_PATH):
         print(f"[Lỗi] Không thể đọc file JSON Persona: {e}")
 else:
     print(f"[Cảnh báo] Không tìm thấy file JSON cấu hình Persona tại: {PERSONA_JSON_PATH}")
+
+# Nạp ngưỡng khoảng cách theo từng cụm (dùng để phát hiện khách hàng bất thường/ngoại lệ)
+cluster_thresholds = {}
+if os.path.exists(THRESHOLD_JSON_PATH):
+    try:
+        with open(THRESHOLD_JSON_PATH, "r", encoding="utf-8") as f:
+            cluster_thresholds = _json.load(f)
+        print("[Backend] Đã nạp ngưỡng khoảng cách theo cụm thành công.")
+    except Exception as e:
+        print(f"[Lỗi] Không thể đọc file JSON ngưỡng khoảng cách: {e}")
+else:
+    print(f"[Cảnh báo] Không tìm thấy file ngưỡng khoảng cách tại: {THRESHOLD_JSON_PATH} "
+          f"(chạy lại train_final.py bản mới để tạo file này).")
 
 # -------------------------------------------------------------------------
 # 2. ĐỊNH NGHĨA ĐỊNH DẠNG DỮ LIỆU ĐẦU VÀO (DATA VALIDATION)
@@ -85,55 +100,89 @@ def get_model_info():
 @router.post("/predict")
 def predict_customer_segment(data: SinglePredictRequest):
     """
-    Endpoint 3: Nhận thông tin thô, tiền xử lý, lưu DB và dự đoán nhóm cụm
+    Endpoint 3: Nhận thông tin thô, tiền xử lý, lưu DB và dự đoán nhóm cụm.
+ 
+    kèm theo đánh giá độ tin cậy (confidence) dựa trên khoảng cách từ điểm dữ liệu
+    tới tâm cụm được gán, so với ngưỡng học được lúc train. Khách hàng có hành vi quá khác
+    biệt (outlier chưa từng thấy lúc train) sẽ được cảnh báo rõ thay vì trả lời chắc nịch sai.
     """
     if model is None or scaler is None:
         raise HTTPException(status_code=500, detail="Hệ thống chưa sẵn sàng, thiếu file mô hình.")
-    
+ 
     try:
         # Bước 3.1: Chuyển đổi chuỗi ngày nhận từ người dùng thành đối tượng datetime
         try:
             user_date = datetime.strptime(data.last_purchase_date, "%Y-%m-%d")
         except ValueError:
             raise HTTPException(status_code=400, detail="Định dạng ngày không hợp lệ. Vui lòng dùng YYYY-MM-DD.")
-            
+ 
         # Bước 3.2: Tính Recency thô dựa trên hệ quy chiếu năm 2011
         recency_days = (SNAPSHOT_DATE_2011 - user_date).days
         if recency_days < 0:
             raise HTTPException(status_code=400, detail="Ngày mua cuối không được lớn hơn ngày chốt sổ hệ thống (09/12/2011).")
-
+ 
         # Bước 3.3: Tiền xử lý dữ liệu: log1p -> scale Z-score
-        raw_features = np.array([[float(recency_days), data.frequency, data.monetary]])
-        log_features = np.log1p(raw_features)
+        raw_features = pd.DataFrame(
+            [[float(recency_days), data.frequency, data.monetary]],
+            columns=['Recency', 'Frequency', 'Monetary']
+        )
+        log_features = raw_features.apply(np.log1p)
         scaled_features = scaler.transform(log_features)
-        
+ 
         # Bước 3.4: Đưa vào mô hình K-Means dự đoán Cluster ID
         cluster_id = int(model.predict(scaled_features)[0])
-        
+ 
+        # MỚI - Bước 3.4b: Đánh giá độ tin cậy dựa trên khoảng cách tới tâm cụm được gán
+        distances_to_all_centers = model.transform(scaled_features)[0]
+        distance_to_assigned_center = float(distances_to_all_centers[cluster_id])
+ 
+        threshold = cluster_thresholds.get(str(cluster_id))
+        if threshold is not None:
+            is_outlier = distance_to_assigned_center > threshold
+            confidence = "low" if is_outlier else "high"
+        else:
+            is_outlier = None
+            confidence = "unknown"
+ 
         # Bước 3.5: Ánh xạ Cluster ID sang định danh Persona kinh doanh
-        key = str(cluster_id)   
-
+        key = str(cluster_id)
         if key in persona_map:
             persona_info = persona_map[key]
         else:
-            # Fallback an toàn nếu file JSON bị thiếu cụm
             persona_info = {"persona": f"Nhóm khách hàng {cluster_id}", "desc": "N/A"}
-
+ 
+        persona_name = persona_info["persona"]
+        description = persona_info.get("description", persona_info.get("desc", ""))
+ 
+        # MỚI: nếu độ tin cậy thấp, thêm cảnh báo rõ ràng vào cả persona lẫn description
+        if is_outlier:
+            persona_name = f"{persona_name} (Ngoại lệ)"
+            description = (
+                "Hành vi mua hàng của khách này khác biệt đáng kể so với mọi khách hàng "
+                "trong dữ liệu huấn luyện (Recency/Frequency/Monetary nằm ngoài phạm vi "
+                "thông thường của cụm gần nhất). Kết quả phân cụm chỉ mang tính tham khảo, "
+                "nên xem xét thủ công thay vì áp dụng chiến lược marketing hàng loạt. "
+                + description
+            )
+ 
         # Bước 3.6: Gọi hàm lưu lịch sử dự đoán vào PostgreSQL
         log_to_db(
             recency=float(recency_days),
             frequency=data.frequency,
             monetary=data.monetary,
             cluster_id=cluster_id,
-            cluster_label=persona_info["persona"]
+            cluster_label=persona_name
         )
-        
+ 
         return {
             "cluster_id": cluster_id,
-            "persona": persona_info["persona"],
-            "description": persona_info.get("description", persona_info.get("desc", ""))       
+            "persona": persona_name,
+            "description": description,
+            "confidence": confidence,
+            "distance_to_cluster_center": round(distance_to_assigned_center, 4),
+            "distance_threshold": threshold
         }
-        
+ 
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
