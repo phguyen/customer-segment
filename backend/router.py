@@ -16,8 +16,8 @@ router = APIRouter()
 # -------------------------------------------------------------------------
 # 1. TẢI MÔ HÌNH VÀ BỘ CHUẨN HÓA LÊN BỘ NHỚ (LOAD ONCE)
 # -------------------------------------------------------------------------
-MODEL_PATH = "models/kmeans_model(f).pkl"
-SCALER_PATH = "models/rfm_scaler(f).pkl"
+MODEL_PATH = "models/kmeans_model.pkl"
+SCALER_PATH = "models/rfm_scaler.pkl"
 PERSONA_JSON_PATH = "models/persona_mapping.json"  
 THRESHOLD_JSON_PATH = "models/cluster_distance_thresholds.json"  
 
@@ -31,8 +31,7 @@ else:
     print("[Cảnh báo] Chưa tìm thấy file mô hình hoặc bộ chuẩn hóa trong thư mục models/.")
 
 
-# Ngày mốc cố định của hệ thống dữ liệu gốc năm 2011 để tính Recency cho Single Predict
-SNAPSHOT_DATE_2011 = datetime(2011, 12, 9)
+NOW = datetime.now()
 
 persona_map = {}
 # Tự động đọc cấu hình Persona từ file JSON lên bộ nhớ khi khởi động server
@@ -116,10 +115,10 @@ def predict_customer_segment(data: SinglePredictRequest):
         except ValueError:
             raise HTTPException(status_code=400, detail="Định dạng ngày không hợp lệ. Vui lòng dùng YYYY-MM-DD.")
  
-        # Bước 3.2: Tính Recency thô dựa trên hệ quy chiếu năm 2011
-        recency_days = (SNAPSHOT_DATE_2011 - user_date).days
+        # Bước 3.2: Tính Recency 
+        recency_days = (NOW - user_date).days
         if recency_days < 0:
-            raise HTTPException(status_code=400, detail="Ngày mua cuối không được lớn hơn ngày chốt sổ hệ thống (09/12/2011).")
+            raise HTTPException(status_code=400, detail="Ngày mua hàng cuối cùng không thể ở tương lai.")
  
         # Bước 3.3: Tiền xử lý dữ liệu: log1p -> scale Z-score
         raw_features = pd.DataFrame(

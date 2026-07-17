@@ -74,7 +74,7 @@ def build_rfm_features(df, processed_dir):
     # Lưu bảng RFM đầy đủ. LƯU Ý: từ khi chuyển sang CLIP outlier (không xóa khách hàng nào
     # nữa), file này và customer_segmentation.csv sẽ có CÙNG số khách hàng -- không còn khách
     # nào bị coi là "outlier bị loại khỏi train" nữa, chỉ có giá trị R/F/M bị kẹp về biên hợp lý.
-    full_rfm_path = os.path.join(processed_dir, 'customer_segmentation_full(1).csv')
+    full_rfm_path = os.path.join(processed_dir, 'customer_segmentation_full.csv')
     rfm.to_csv(full_rfm_path, index=False, encoding='utf-8-sig')
     print(f"-> Đã lưu tập dữ liệu RFM đầy đủ tại: {full_rfm_path}")
 
@@ -106,7 +106,7 @@ def handle_outliers_and_transform(rfm, processed_dir):
     print(f" -> Tổng số khách hàng (giữ nguyên, không xóa ai): {rfm_cleaned.shape[0]:,}")
 
     # Lưu bảng RFM đơn vị gốc (đã clip) - Phục vụ phân tích đặc điểm phân cụm sau này
-    raw_rfm_path = os.path.join(processed_dir, 'customer_segmentation(1).csv')
+    raw_rfm_path = os.path.join(processed_dir, 'customer_segmentation.csv')
     rfm_cleaned.to_csv(raw_rfm_path, index=False, encoding='utf-8-sig')
     print(f"-> Đã lưu bảng RFM đã xử lý (đơn vị gốc) tại: {raw_rfm_path}")
 
@@ -122,11 +122,11 @@ def handle_outliers_and_transform(rfm, processed_dir):
 
     # Đóng gói và lưu trữ đối tượng Scaler pkl để tái sử dụng (BẮT BUỘC cho inference.py sau này)
     os.makedirs('models', exist_ok=True)
-    joblib.dump(scaler, 'models/rfm_scaler(f).pkl')
-    print("-> Đã đóng gói và lưu bộ chuẩn hóa tại: models/rfm_scaler(f).pkl")
+    joblib.dump(scaler, 'models/rfm_scaler.pkl')
+    print("-> Đã đóng gói và lưu bộ chuẩn hóa tại: models/rfm_scaler.pkl")
 
     # Lưu tập dữ liệu số đã xử lý hoàn chỉnh chuẩn bị đưa vào huấn luyện mô hình học máy
-    scaled_data_path = os.path.join(processed_dir, 'customer_segmentation_scaled(1).csv')
+    scaled_data_path = os.path.join(processed_dir, 'customer_segmentation_scaled.csv')
     rfm_scaled_df.to_csv(scaled_data_path, index=False, encoding="utf-8-sig")
     print(f"-> Đã lưu tập dữ liệu số chuẩn hóa hoàn chỉnh tại: {scaled_data_path}")
 
