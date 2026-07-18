@@ -49,12 +49,15 @@ def clean_data(df):
     return df
 
 
-def build_rfm_features(df, processed_dir):
+def build_rfm_features(df, processed_dir,snapshot_date=None):
     print("\n=== BƯỚC 2: TRÍCH XUẤT ĐẶC TRƯNG HÀNH VI KHÁCH HÀNG (RFM) ===")
 
-    # Thiết lập ngày mốc để tính Recency (Ngày giao dịch cuối cùng của tập dữ liệu)
-    snapshot_date = df['InvoiceDate'].max()
-    print(f"Ngày mốc tính Recency hệ thống: {snapshot_date}")
+    # Nếu k truyền gì thì thiết lập ngày mốc để tính Recency là Ngày giao dịch cuối cùng trong file
+    # ĐỌC TỚI ĐÂY THÌ NHẮN T GIẢI THÍCH
+    if snapshot_date is None:
+        snapshot_date = df['InvoiceDate'].max()
+    
+    print(f"Ngày mốc tính Recency: {snapshot_date}")
 
     # Gom nhóm theo CustomerID để tính toán các chỉ số RFM
     rfm = df.groupby('CustomerID').agg({
@@ -120,7 +123,7 @@ def handle_outliers_and_transform(rfm, processed_dir):
     rfm_scaled_df = pd.DataFrame(rfm_scaled_array, columns=['Recency', 'Frequency', 'Monetary'])
     rfm_scaled_df.insert(0, 'CustomerID', rfm_cleaned['CustomerID'].values)
 
-    # Đóng gói và lưu trữ đối tượng Scaler pkl để tái sử dụng (BẮT BUỘC cho inference.py sau này)
+    # Đóng gói và lưu trữ đối tượng Scaler pkl để tái sử dụng
     os.makedirs('models', exist_ok=True)
     joblib.dump(scaler, 'models/rfm_scaler.pkl')
     print("-> Đã đóng gói và lưu bộ chuẩn hóa tại: models/rfm_scaler.pkl")
