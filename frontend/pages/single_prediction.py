@@ -1,79 +1,22 @@
-from datetime import date, datetime
-import time
+from datetime import date
 
-import pandas as pd
 import streamlit as st
 
-from utils.history_utils import append_prediction_history
-from utils.prediction_utils import predict_customer
-
+from utils.prediction_utils import (
+    APIConnectionError,
+    APIResponseError,
+    is_backend_running,
+    predict_customer,
+)
 
 # =========================================================
-# 1. THÔNG TIN HIỂN THỊ THEO PHÂN KHÚC
+# 1. NỘI DUNG MARKETING THEO TỪNG CỤM
 # =========================================================
-# CLUSTER_CONTENT = {
-#     0: {
-#         "status": "VIP",
-#         "description": (
-#             "Đây là nhóm khách hàng có giá trị cao, mua hàng gần đây, "
-#             "tần suất mua tốt và đóng góp doanh thu lớn."
-#         ),
-#         "recommendations": [
-#             "Ưu tiên chương trình chăm sóc khách hàng VIP",
-#             "Cung cấp ưu đãi hoặc quyền lợi độc quyền",
-#             "Cá nhân hóa nội dung và sản phẩm đề xuất",
-#             "Khuyến khích giới thiệu khách hàng mới",
-#         ],
-#         "message_type": "success",
-#     },
-#     1: {
-#         "status": "Potential",
-#         "description": (
-#             "Đây là nhóm khách hàng có mức độ tương tác tốt và còn nhiều "
-#             "khả năng gia tăng tần suất mua hoặc tổng giá trị chi tiêu."
-#         ),
-#         "recommendations": [
-#             "Khuyến khích mua lại bằng voucher",
-#             "Đề xuất combo sản phẩm phù hợp",
-#             "Gửi nội dung chăm sóc cá nhân hóa",
-#             "Theo dõi phản hồi sau mua hàng",
-#         ],
-#         "message_type": "info",
-#     },
-#     2: {
-#         "status": "Need Attention",
-#         "description": (
-#             "Đây là nhóm khách hàng có hành vi mua ở mức trung bình "
-#             "và cần được tiếp tục nuôi dưỡng."
-#         ),
-#         "recommendations": [
-#             "Gửi nội dung nhắc nhớ thương hiệu",
-#             "Áp dụng ưu đãi nhẹ để kích thích mua lại",
-#             "Gợi ý sản phẩm dựa trên lịch sử mua hàng",
-#             "Theo dõi tần suất mua trong 30 ngày tới",
-#         ],
-#         "message_type": "warning",
-#     },
-#     3: {
-#         "status": "At Risk",
-#         "description": (
-#             "Đây là nhóm khách hàng đã lâu chưa quay lại hoặc có tần suất "
-#             "mua thấp, cần được ưu tiên tái kích hoạt."
-#         ),
-#         "recommendations": [
-#             "Triển khai chiến dịch tái kích hoạt",
-#             "Gửi ưu đãi quay lại có thời hạn",
-#             "Khảo sát nguyên nhân khách hàng ngừng mua",
-#             "Ưu tiên chăm sóc trong 7 ngày tới",
-#         ],
-#         "message_type": "error",
-#     },
-# }
 CLUSTER_CONTENT = {
     0: {
         "description": (
             "Đây là nhóm khách hàng tiềm năng mới gia nhập, "
-            "cần được khuyến khích mua thêm."
+            "cần được khuyến khích mua thêm và duy trì tương tác."
         ),
         "recommendations": [
             "Gửi ưu đãi cho lần mua tiếp theo",
@@ -83,7 +26,6 @@ CLUSTER_CONTENT = {
         ],
         "message_type": "info",
     },
-
     1: {
         "description": (
             "Đây là nhóm khách hàng có nguy cơ rời bỏ, "
@@ -97,7 +39,6 @@ CLUSTER_CONTENT = {
         ],
         "message_type": "error",
     },
-
     2: {
         "description": (
             "Đây là nhóm khách hàng có mức độ trung thành còn thấp "
@@ -111,10 +52,9 @@ CLUSTER_CONTENT = {
         ],
         "message_type": "warning",
     },
-
     3: {
         "description": (
-            "Đây là nhóm khách hàng giá trị cao nhất, "
+            "Đây là nhóm khách hàng có giá trị cao, "
             "cần được ưu tiên chăm sóc đặc biệt."
         ),
         "recommendations": [
@@ -127,16 +67,20 @@ CLUSTER_CONTENT = {
     },
 }
 
-def get_cluster_content(cluster: int) -> dict:
-    """Lấy nội dung hiển thị tương ứng với từng cụm."""
 
+# =========================================================
+# 2. HÀM HỖ TRỢ
+# =========================================================
+def get_cluster_content(cluster_id: int) -> dict:
+    """
+    Trả về mô tả và đề xuất marketing theo mã cụm.
+    """
     return CLUSTER_CONTENT.get(
-        cluster,
+        cluster_id,
         {
-            "status": "Customer Segment",
             "description": (
-                "Khách hàng đã được mô hình phân vào một nhóm hành vi "
-                "dựa trên các chỉ số Recency, Frequency và Monetary."
+                "Khách hàng đã được phân nhóm dựa trên ba chỉ số "
+                "Recency, Frequency và Monetary."
             ),
             "recommendations": [
                 "Theo dõi thêm hành vi mua hàng",
@@ -149,8 +93,46 @@ def get_cluster_content(cluster: int) -> dict:
     )
 
 
+def get_model_value(
+    model_info: dict,
+    possible_keys: list[str],
+    default="—",
+):
+    """
+    Lấy giá trị từ thông tin model khi backend có thể sử dụng
+    tên khóa tiếng Anh hoặc tiếng Việt khác nhau.
+    """
+    for key in possible_keys:
+        value = model_info.get(key)
+
+        if value is not None:
+            return value
+
+    return default
+
+
+def show_persona_message(
+    persona: str,
+    message_type: str,
+):
+    """
+    Hiển thị tên phân khúc theo kiểu thông báo phù hợp.
+    """
+    if message_type == "success":
+        st.success(persona)
+
+    elif message_type == "warning":
+        st.warning(persona)
+
+    elif message_type == "error":
+        st.error(persona)
+
+    else:
+        st.info(persona)
+
+
 # =========================================================
-# 2. CSS
+# 3. CSS
 # =========================================================
 st.markdown(
     """
@@ -183,14 +165,6 @@ st.markdown(
             border-radius: 10px;
             font-weight: 700;
         }
-
-        div[data-baseweb="input"] > div {
-            border-radius: 10px;
-        }
-
-        div[data-baseweb="base-input"] > div {
-            border-radius: 10px;
-        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -198,7 +172,7 @@ st.markdown(
 
 
 # =========================================================
-# 3. TIÊU ĐỀ
+# 4. TIÊU ĐỀ
 # =========================================================
 st.title("Phân nhóm khách hàng đơn lẻ")
 
@@ -209,7 +183,34 @@ st.caption(
 
 
 # =========================================================
-# 4. BỐ CỤC
+# 5. KIỂM TRA BACKEND
+# =========================================================
+if not is_backend_running():
+    st.error(
+        "Không thể kết nối tới FastAPI Backend. "
+        "Hãy chạy backend trước khi thực hiện dự đoán."
+    )
+
+    st.code(
+        "uvicorn main:app --reload",
+        language="bash",
+    )
+
+    st.stop()
+
+
+# =========================================================
+# 6. SESSION STATE
+# =========================================================
+if "single_prediction_result" not in st.session_state:
+    st.session_state.single_prediction_result = None
+
+if "single_prediction_input" not in st.session_state:
+    st.session_state.single_prediction_input = None
+
+
+# =========================================================
+# 7. BỐ CỤC
 # =========================================================
 input_col, result_col = st.columns(
     [1.02, 0.98],
@@ -218,21 +219,28 @@ input_col, result_col = st.columns(
 
 
 # =========================================================
-# 5. FORM NHẬP DỮ LIỆU
+# 8. FORM NHẬP
 # =========================================================
 with input_col:
     with st.container(border=True):
         st.subheader("Thông tin khách hàng")
 
         st.caption(
-            "Nhập thông tin mua hàng để hệ thống tính toán chỉ số RFM."
+            "Nhập thông tin mua hàng để backend tính Recency "
+            "và dự đoán phân khúc khách hàng."
         )
 
-        with st.form("single_prediction_form"):
+        with st.form(
+            "single_prediction_form",
+            clear_on_submit=False,
+        ):
             customer_id = st.text_input(
                 "Mã khách hàng",
                 placeholder="Ví dụ: CUST001",
-                help="Mã định danh khách hàng trong hệ thống.",
+                help=(
+                    "Mã khách hàng hiện chỉ dùng để hiển thị "
+                    "trên giao diện vì backend chưa lưu trường này."
+                ),
             )
 
             last_purchase_date = st.date_input(
@@ -240,15 +248,14 @@ with input_col:
                 value=date.today(),
                 max_value=date.today(),
                 format="DD/MM/YYYY",
-                help="Ngày phát sinh giao dịch gần nhất của khách hàng.",
             )
 
             frequency = st.number_input(
-                "Tổng số hóa đơn đã mua (Frequency)",
+                "Tổng số lần mua hàng (Frequency)",
                 min_value=1,
                 value=1,
                 step=1,
-                help="Tổng số hóa đơn hoặc số lần mua của khách hàng.",
+                help="Số lần khách hàng đã thực hiện giao dịch.",
             )
 
             monetary = st.number_input(
@@ -268,13 +275,99 @@ with input_col:
 
 
 # =========================================================
-# 6. KẾT QUẢ
+# 9. XỬ LÝ DỰ ĐOÁN
+# =========================================================
+if submitted:
+    validation_errors = []
+
+    clean_customer_id = customer_id.strip()
+
+    if not clean_customer_id:
+        validation_errors.append(
+            "Vui lòng nhập mã khách hàng."
+        )
+
+    if frequency < 1:
+        validation_errors.append(
+            "Frequency phải lớn hơn hoặc bằng 1."
+        )
+
+    if monetary <= 0:
+        validation_errors.append(
+            "Monetary phải lớn hơn 0."
+        )
+
+    if last_purchase_date > date.today():
+        validation_errors.append(
+            "Ngày mua gần nhất không được lớn hơn ngày hiện tại."
+        )
+
+    if validation_errors:
+        st.session_state.single_prediction_result = {
+            "validation_errors": validation_errors
+        }
+
+        st.session_state.single_prediction_input = None
+
+    else:
+        with st.spinner(
+            "Đang gửi dữ liệu đến FastAPI và dự đoán phân khúc..."
+        ):
+            try:
+                api_result = predict_customer(
+                    last_purchase_date=last_purchase_date,
+                    frequency=frequency,
+                    monetary=monetary,
+                )
+
+                recency = (
+                    date.today() - last_purchase_date
+                ).days
+
+                st.session_state.single_prediction_result = (
+                    api_result
+                )
+
+                st.session_state.single_prediction_input = {
+                    "customer_id": clean_customer_id,
+                    "last_purchase_date": last_purchase_date,
+                    "recency": int(recency),
+                    "frequency": int(frequency),
+                    "monetary": float(monetary),
+                }
+
+            except (
+                APIConnectionError,
+                APIResponseError,
+            ) as error:
+                st.session_state.single_prediction_result = {
+                    "api_error": str(error)
+                }
+
+                st.session_state.single_prediction_input = None
+
+            except Exception as error:
+                st.session_state.single_prediction_result = {
+                    "api_error": (
+                        "Đã xảy ra lỗi không xác định: "
+                        f"{error}"
+                    )
+                }
+
+                st.session_state.single_prediction_input = None
+
+
+# =========================================================
+# 10. KẾT QUẢ
 # =========================================================
 with result_col:
     with st.container(border=True):
         st.subheader("Kết quả phân tích")
 
-        if not submitted:
+        result = st.session_state.single_prediction_result
+        input_data = st.session_state.single_prediction_input
+
+        if result is None:
             st.caption(
                 "Kết quả sẽ xuất hiện sau khi bạn hoàn thành biểu mẫu."
             )
@@ -286,8 +379,15 @@ with result_col:
 
             placeholder_1, placeholder_2 = st.columns(2)
 
-            placeholder_1.metric("Mã cụm", "—")
-            placeholder_2.metric("Recency", "—")
+            placeholder_1.metric(
+                "Mã cụm",
+                "—",
+            )
+
+            placeholder_2.metric(
+                "Độ tin cậy",
+                "—",
+            )
 
             st.divider()
 
@@ -298,193 +398,276 @@ with result_col:
                 "xác định được phân khúc khách hàng."
             )
 
-        else:
-            errors = []
+        elif "validation_errors" in result:
+            st.error(
+                "Dữ liệu nhập vào chưa hợp lệ."
+            )
 
-            if not customer_id.strip():
-                errors.append("Vui lòng nhập mã khách hàng.")
-
-            if monetary <= 0:
-                errors.append(
-                    "Tổng số tiền đã chi tiêu phải lớn hơn 0."
+            for validation_error in result[
+                "validation_errors"
+            ]:
+                st.write(
+                    f"- {validation_error}"
                 )
 
-            if errors:
-                st.error("Dữ liệu nhập vào chưa hợp lệ.")
+        elif "api_error" in result:
+            st.error(
+                "Không thể thực hiện dự đoán."
+            )
 
-                for error in errors:
-                    st.write(f"- {error}")
+            st.write(
+                result["api_error"]
+            )
 
-            else:
-                recency = (
-                    date.today() - last_purchase_date
-                ).days
-
-                with st.spinner(
-                    "Đang chuẩn hóa dữ liệu và dự đoán phân khúc..."
-                ):
-                    time.sleep(0.5)
-
-                    try:
-                        result = predict_customer(
-                            recency=recency,
-                            frequency=int(frequency),
-                            monetary=float(monetary),
-                        )
-
-                    except Exception as error:
-                        st.error(
-                            f"Không thể thực hiện dự đoán: {error}"
-                        )
-                        st.stop()
-
-                cluster = int(
+        else:
+            try:
+                cluster_id = int(
                     result.get(
-                        "Cluster",
-                        result.get("cluster", -1),
+                        "cluster_id",
+                        result.get(
+                            "cluster",
+                            -1,
+                        ),
                     )
                 )
 
-                cluster_name = str(result.get("ClusterName", f"Cluster {cluster}"))
+            except (
+                TypeError,
+                ValueError,
+            ):
+                cluster_id = -1
 
-                cluster_description = result.get(
-                    "ClusterDescription",
+            persona = str(
+                result.get(
+                    "persona",
+                    result.get(
+                        "cluster_label",
+                        f"Nhóm khách hàng {cluster_id}",
+                    ),
+                )
+            )
+
+            api_description = str(
+                result.get(
+                    "description",
                     "",
                 )
+                or ""
+            )
 
-                cluster_content = get_cluster_content(cluster)
-                with st.expander("Thông tin mô hình đang sử dụng"):
-                    st.write("**Mô hình:**", result["ModelName"])
-                    st.write("**Bộ chuẩn hóa:**", result["ScalerName"])
-                    st.write("**File model:**", result["ModelPath"])
-
-                # =================================================
-                # LƯU LỊCH SỬ
-                # =================================================
-                single_history = pd.DataFrame(
-                    [
-                        {
-                            "PredictionTime": (
-                                datetime.now().strftime(
-                                    "%Y-%m-%d %H:%M:%S"
-                                )
-                            ),
-                            "PredictionType": "Single",
-                            "CustomerID": customer_id.strip(),
-                            "LastPurchaseDate": (
-                                last_purchase_date.strftime(
-                                    "%Y-%m-%d"
-                                )
-                            ),
-                            "Recency": int(recency),
-                            "Frequency": int(frequency),
-                            "Monetary": float(monetary),
-                            "Cluster": int(cluster),
-                            "ClusterName": cluster_name,
-                        }
-                    ]
+            confidence = str(
+                result.get(
+                    "confidence",
+                    "unknown",
                 )
+                or "unknown"
+            ).lower()
 
-                try:
-                    append_prediction_history(single_history)
+            cluster_content = get_cluster_content(
+                cluster_id
+            )
 
-                except Exception as error:
-                    st.warning(
-                        "Dự đoán thành công nhưng chưa thể lưu lịch sử: "
-                        f"{error}"
-                    )
+            show_persona_message(
+                persona=persona,
+                message_type=cluster_content[
+                    "message_type"
+                ],
+            )
 
-                # =================================================
-                # THÔNG BÁO PHÂN KHÚC
-                # =================================================
-                message = cluster_name
-
-                if cluster_content["message_type"] == "success":
-                    st.success(message)
-
-                elif cluster_content["message_type"] == "warning":
-                    st.warning(message)
-
-                elif cluster_content["message_type"] == "error":
-                    st.error(message)
-
-                else:
-                    st.info(message)
-
+            if input_data:
                 st.caption(
-                    f"Mã khách hàng: {customer_id.strip()}"
+                    f"Mã khách hàng: "
+                    f"{input_data['customer_id']}"
                 )
 
-                # =================================================
-                # CÁC CHỈ SỐ
-                # =================================================
-                metric_1, metric_2 = st.columns(2)
+            metric_1, metric_2 = st.columns(2)
 
-                metric_1.metric(
-                    "Mã cụm",
-                    f"Cluster {cluster}",
+            metric_1.metric(
+                "Mã cụm",
+                (
+                    f"Cluster {cluster_id}"
+                    if cluster_id >= 0
+                    else "Chưa xác định"
+                ),
+            )
+
+            confidence_display = {
+                "high": "Cao",
+                "medium": "Trung bình",
+                "low": "Thấp",
+                "unknown": "Chưa xác định",
+            }.get(
+                confidence,
+                confidence.capitalize(),
+            )
+
+            metric_2.metric(
+                "Độ tin cậy",
+                confidence_display,
+            )
+
+            metric_3, metric_4, metric_5 = st.columns(3)
+
+            metric_3.metric(
+                "Recency",
+                (
+                    f"{input_data['recency']} ngày"
+                    if input_data
+                    else "—"
+                ),
+            )
+
+            metric_4.metric(
+                "Frequency",
+                (
+                    f"{input_data['frequency']:,}"
+                    if input_data
+                    else "—"
+                ),
+            )
+
+            metric_5.metric(
+                "Monetary",
+                (
+                    f"{input_data['monetary']:,.0f} ₫"
+                    if input_data
+                    else "—"
+                ),
+            )
+
+            st.divider()
+
+            if input_data:
+                st.subheader(
+                    "Tóm tắt khách hàng"
                 )
-
-                metric_2.metric(
-                    "Recency",
-                    f"{recency} ngày",
-                )
-
-                metric_3, metric_4 = st.columns(2)
-
-                metric_3.metric(
-                    "Frequency",
-                    f"{int(frequency):,}",
-                )
-
-                metric_4.metric(
-                    "Monetary",
-                    f"{float(monetary):,.0f} ₫",
-                )
-
-                st.divider()
-
-                # =================================================
-                # TÓM TẮT KHÁCH HÀNG
-                # =================================================
-                st.subheader("Tóm tắt khách hàng")
 
                 summary_col_1, summary_col_2 = st.columns(2)
 
                 with summary_col_1:
-                    st.write("**Mã khách hàng**")
-                    st.write(customer_id.strip())
-
-                with summary_col_2:
-                    st.write("**Ngày mua gần nhất**")
                     st.write(
-                        last_purchase_date.strftime("%d/%m/%Y")
+                        "**Mã khách hàng**"
                     )
 
-                st.divider()
+                    st.write(
+                        input_data[
+                            "customer_id"
+                        ]
+                    )
 
-                # =================================================
-                # ĐẶC ĐIỂM PHÂN KHÚC
-                # =================================================
-                st.subheader("Đặc điểm phân khúc")
+                with summary_col_2:
+                    st.write(
+                        "**Ngày mua gần nhất**"
+                    )
 
-                st.write(cluster_content["description"])
-
-                # =================================================
-                # ĐỀ XUẤT MARKETING
-                # =================================================
-                st.subheader("Đề xuất Marketing")
-
-                for index, recommendation in enumerate(
-                    cluster_content["recommendations"],
-                    start=1,
-                ):
-                    with st.container(border=True):
-                        st.write(
-                            f"**{index}. {recommendation}**"
+                    st.write(
+                        input_data[
+                            "last_purchase_date"
+                        ].strftime(
+                            "%d/%m/%Y"
                         )
+                    )
 
-                st.caption(
-                    "Kết quả được tạo từ mô hình K-Means đã huấn luyện "
-                    "trên dữ liệu RFM."
+            st.divider()
+
+            st.subheader(
+                "Đặc điểm phân khúc"
+            )
+
+            description = (
+                api_description.strip()
+                or cluster_content[
+                    "description"
+                ]
+            )
+
+            st.write(description)
+
+            st.subheader(
+                "Đề xuất Marketing"
+            )
+
+            for index, recommendation in enumerate(
+                cluster_content[
+                    "recommendations"
+                ],
+                start=1,
+            ):
+                with st.container(
+                    border=True
+                ):
+                    st.write(
+                        f"**{index}. "
+                        f"{recommendation}**"
+                    )
+
+            with st.expander(
+                "Thông tin hệ thống",
+                expanded=False,
+            ):
+                st.write(
+                    "**Nguồn dự đoán:** "
+                    "FastAPI Backend"
                 )
+
+                st.write(
+                    "**Lịch sử:** "
+                    "Backend tự động lưu vào MySQL"
+                )
+
+                try:
+                    model_info = get_model_info()
+
+                    algorithm = get_model_value(
+                        model_info,
+                        [
+                            "algorithm",
+                            "Algorithm",
+                            "model",
+                            "model_name",
+                            "Thuật toán",
+                        ],
+                        default="K-Means",
+                    )
+
+                    number_of_clusters = get_model_value(
+                        model_info,
+                        [
+                            "n_clusters",
+                            "number_of_clusters",
+                            "clusters",
+                            "Số cụm",
+                            "so_cum",
+                        ],
+                    )
+
+                    model_status = get_model_value(
+                        model_info,
+                        [
+                            "status",
+                            "Status",
+                            "Trạng thái",
+                        ],
+                        default="Đã kết nối",
+                    )
+
+                    st.write(
+                        "**Thuật toán:**",
+                        algorithm,
+                    )
+
+                    st.write(
+                        "**Số cụm:**",
+                        number_of_clusters,
+                    )
+
+                    st.write(
+                        "**Trạng thái:**",
+                        model_status,
+                    )
+
+                except Exception as error:
+                    st.caption(
+                        "Không tải được thông tin chi tiết "
+                        f"của model: {error}"
+                    )

@@ -216,7 +216,7 @@ def predict_batch_csv(file: UploadFile = File(...)):
         batch_results = []
         for idx, row in rfm.iterrows():
             cluster_id = int(row['Cluster'])
-            cust_id = int(row['CustomerID'])
+            cust_id = str(row['CustomerID'])
             
             dist = float(distances_to_centers[len(batch_results), cluster_id])
             threshold = cluster_thresholds.get(str(cluster_id))
@@ -246,9 +246,17 @@ def predict_batch_csv(file: UploadFile = File(...)):
         return {"total_customers_segmented": len(batch_results), "results": batch_results}
 
     except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(status_code=500, detail=f"Lỗi hệ thống khi xử lý tệp: {str(e)}")
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi hệ thống khi xử lý tệp: {str(e)}"
+    )
 
 
 @router.get("/history")
