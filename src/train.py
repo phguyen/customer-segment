@@ -29,8 +29,11 @@ def train_kmeans(X, k, models_dir):
     sil = silhouette_score(X, labels)
     db = davies_bouldin_score(X, labels)
     print(f" -> Silhouette: {sil:.4f} | Davies-Bouldin: {db:.4f}")
+    #Để lưu các chỉ số đánh giá vào model luôn
+    model.silhouette_score_f_ = float(sil)
+    model.davies_bouldin_index_f_ = float(db)
 
-    model_path = os.path.join(models_dir, "kmeans_model.pkl")
+    model_path = os.path.join(models_dir, "kmeans_model_v2.pkl")
     joblib.dump(model, model_path)
     print(f" -> Đã lưu model tại: {model_path}")
 
