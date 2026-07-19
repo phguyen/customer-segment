@@ -132,8 +132,16 @@ def predict_customer_segment(data: SinglePredictRequest):
             "description": persona_info.get("description", ""),
             "confidence": confidence
         }
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=str(e),
+        )
 
 
 @router.post("/predict-file")

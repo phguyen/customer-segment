@@ -1,0 +1,13 @@
+.git
+.gitignore
+.vscode
+__pycache__
+*.pyc
+.env
+.DS_Store
+
+notebooks
+.virtual_documents
+anaconda_projects
+
+data/raw

@@ -1,9 +1,27 @@
+# pandas
+# numpy
+# scikit-learn
+# matplotlib
+# seaborn
+# openpyxl
+# wandb
+# groq 
+# python-dotenv       
+
+fastapi
+uvicorn[standard]
+streamlit
+requests
 pandas
 numpy
 scikit-learn
 matplotlib
 seaborn
 openpyxl
-wandb
-groq 
-python-dotenv       
+joblib
+python-dotenv
+pydantic
+SQLAlchemy
+PyMySQL
+python-multipart
+pytest
