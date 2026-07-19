@@ -16,8 +16,7 @@ from utils.prediction_utils import (
 st.title("Phân nhóm khách hàng hàng loạt")
 
 st.caption(
-    "Tải file giao dịch CSV để hệ thống làm sạch dữ liệu, "
-    "tính chỉ số RFM và phân nhóm khách hàng bằng mô hình K-Means."
+    "Tải file giao dịch CSV để hệ thống phân nhóm hàng loạt."
 )
 
 
@@ -447,8 +446,8 @@ else:
             .sum()
         )
 
-        kpi_1, kpi_2, kpi_3, kpi_4 = (
-            st.columns(4)
+        kpi_1, kpi_2, kpi_3 = (
+            st.columns(3)
         )
 
         kpi_1.metric(
@@ -461,13 +460,9 @@ else:
             f"{total_segments:,}",
         )
 
-        kpi_3.metric(
-            "Độ tin cậy cao",
-            f"{high_confidence_count:,}",
-        )
 
-        kpi_4.metric(
-            "Tổng Monetary",
+        kpi_3.metric(
+            "Tổng chi tiêu",
             f"{total_monetary:,.0f} ₫",
         )
 
@@ -731,20 +726,20 @@ else:
                 ),
                 "recency_days": (
                     st.column_config.NumberColumn(
-                        "Recency",
+                        "Lần cuối mua",
                         format="%.0f ngày",
                     )
                 ),
                 "frequency_orders": (
                     st.column_config.NumberColumn(
-                        "Frequency",
+                        "Số lần mua",
                         format="%.0f",
                     )
                 ),
                 "monetary_value": (
                     st.column_config.NumberColumn(
-                        "Monetary",
-                        format="%.0f ₫",
+                        "Tổng chi tiêu",
+                        format="%.0f $",
                     )
                 ),
                 "cluster_id": (
@@ -787,28 +782,4 @@ else:
             type="primary",
             use_container_width=True,
             disabled=display_df.empty,
-        )
-
-        st.caption(
-            "Kết quả dự đoán đã được backend tự động "
-            "lưu vào cơ sở dữ liệu MySQL."
-        )
-
-
-# =========================================================
-# 15. DỮ LIỆU API
-# =========================================================
-if (
-    stored_result is not None
-    and stored_result.get("success")
-):
-    with st.expander(
-        "Xem dữ liệu phản hồi từ API",
-        expanded=False,
-    ):
-        st.json(
-            stored_result.get(
-                "data",
-                {},
-            )
         )

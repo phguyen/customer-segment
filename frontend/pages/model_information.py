@@ -61,78 +61,6 @@ def format_metric(value):
         return str(value)
 
 
-def evaluate_silhouette(value):
-    """
-    Nhận xét Silhouette Score.
-    """
-
-    if value is None:
-        return (
-            "Chưa nhận được Silhouette Score từ API."
-        )
-
-    try:
-        value = float(value)
-
-    except (TypeError, ValueError):
-        return (
-            "Silhouette Score trả về không đúng định dạng."
-        )
-
-    if value >= 0.50:
-        return (
-            "Các cụm có mức độ gắn kết và phân tách tốt."
-        )
-
-    if value >= 0.25:
-        return (
-            "Mô hình có cấu trúc phân cụm ở mức chấp nhận được, "
-            "tuy nhiên một số cụm vẫn có thể chồng lấn."
-        )
-
-    return (
-        "Các cụm có khả năng chồng lấn nhiều. "
-        "Nên kiểm tra lại đặc trưng đầu vào hoặc số cụm."
-    )
-
-
-def evaluate_davies_bouldin(value):
-    """
-    Nhận xét Davies-Bouldin Index.
-    """
-
-    if value is None:
-        return (
-            "Chưa nhận được Davies-Bouldin Index từ API."
-        )
-
-    try:
-        value = float(value)
-
-    except (TypeError, ValueError):
-        return (
-            "Davies-Bouldin Index trả về không đúng định dạng."
-        )
-
-    if value < 0.50:
-        return (
-            "Các cụm có mức độ phân tách tốt."
-        )
-
-    if value < 1.00:
-        return (
-            "Chất lượng phân cụm tương đối tốt."
-        )
-
-    if value < 1.50:
-        return (
-            "Chất lượng phân cụm ở mức trung bình."
-        )
-
-    return (
-        "Các cụm có thể chưa được phân tách rõ ràng."
-    )
-
 
 def get_api_value(
     data,
@@ -182,12 +110,7 @@ def show_model_image(
 # 4. TIÊU ĐỀ
 # =========================================================
 st.title("Thông tin mô hình")
-
-st.caption(
-    "Theo dõi cấu hình, chất lượng và kết quả đánh giá "
-    "của mô hình phân khúc khách hàng."
-)
-
+    
 
 # =========================================================
 # 5. GỌI API
@@ -206,10 +129,6 @@ if not api_result.get("success"):
         )
     )
 
-    st.info(
-        "Hãy kiểm tra backend FastAPI đã được chạy chưa:\n\n"
-        "`uvicorn backend.main:app --reload`"
-    )
 
     st.stop()
 
@@ -257,30 +176,10 @@ davies_bouldin_index = get_api_value(
 # =========================================================
 st.subheader("Trạng thái mô hình")
 
-status_col_1, status_col_2, status_col_3, status_col_4 = (
-    st.columns(4)
-)
-
-status_col_1.metric(
+st.metric(
     label="Trạng thái",
-    value="Đã kết nối",
+    value="🟢 Đang hoạt động",
 )
-
-status_col_2.metric(
-    label="Phiên bản",
-    value=MODEL_VERSION,
-)
-
-status_col_3.metric(
-    label="Thuật toán",
-    value=MODEL_ALGORITHM,
-)
-
-status_col_4.metric(
-    label="Số cụm",
-    value=number_of_clusters,
-)
-
 
 st.divider()
 
@@ -290,35 +189,13 @@ st.divider()
 # =========================================================
 st.subheader("Cấu hình mô hình")
 
-with st.container(border=True):
-    config_col_1, config_col_2 = st.columns(
-        2,
-        gap="large",
-    )
+col1, col2, col3, col4 = st.columns(4)
 
-    with config_col_1:
-        st.markdown("**Model version**")
-        st.write(MODEL_VERSION)
+col1.metric("Model version", MODEL_VERSION)
+col2.metric("Thuật toán", MODEL_ALGORITHM)
+col3.metric("Số cụm", number_of_clusters)
+col4.metric("Ngày cập nhật", MODEL_UPDATED_DATE)
 
-        st.markdown("**Thuật toán**")
-        st.write(MODEL_ALGORITHM)
-
-        st.markdown("**Số cụm khách hàng**")
-        st.write(number_of_clusters)
-
-    with config_col_2:
-        st.markdown("**Ngày cập nhật**")
-        st.write(MODEL_UPDATED_DATE)
-
-        st.markdown("**Biến đầu vào**")
-        st.write(
-            ", ".join(MODEL_FEATURES)
-        )
-
-        st.markdown("**Phương pháp tiền xử lý**")
-        st.write(
-            "Log Transformation và Standard Scaling"
-        )
 
 
 st.divider()
@@ -348,17 +225,6 @@ with metric_col_1:
             ),
         )
 
-        st.caption(
-            "Giá trị càng gần 1 cho thấy các điểm dữ liệu "
-            "trong cùng cụm càng gần nhau và các cụm "
-            "càng tách biệt."
-        )
-
-        st.write(
-            evaluate_silhouette(
-                silhouette_score
-            )
-        )
 
 
 with metric_col_2:
@@ -374,16 +240,6 @@ with metric_col_2:
             ),
         )
 
-        st.caption(
-            "Giá trị càng thấp thường cho thấy "
-            "chất lượng phân cụm càng tốt."
-        )
-
-        st.write(
-            evaluate_davies_bouldin(
-                davies_bouldin_index
-            )
-        )
 
 
 st.divider()
@@ -523,71 +379,3 @@ with rfm_col_3:
 
 
 st.divider()
-
-
-# =========================================================
-# 13. NHẬN XÉT TỔNG QUAN
-# =========================================================
-st.subheader("Nhận xét tổng quan")
-
-with st.container(border=True):
-    st.write(
-        f"Hệ thống hiện sử dụng mô hình "
-        f"**{MODEL_ALGORITHM} phiên bản {MODEL_VERSION}** "
-        f"để phân chia khách hàng thành "
-        f"**{number_of_clusters} cụm**."
-    )
-
-    st.write(
-        "Mô hình được xây dựng dựa trên ba đặc trưng "
-        "**Recency, Frequency và Monetary**. "
-        "Dữ liệu được biến đổi log và chuẩn hóa trước "
-        "khi đưa vào mô hình K-Means."
-    )
-
-    if silhouette_score is not None:
-        st.write(
-            f"Silhouette Score hiện tại đạt "
-            f"**{format_metric(silhouette_score)}**. "
-            f"{evaluate_silhouette(silhouette_score)}"
-        )
-
-    if davies_bouldin_index is not None:
-        st.write(
-            f"Davies-Bouldin Index hiện tại là "
-            f"**{format_metric(davies_bouldin_index)}**. "
-            f"{evaluate_davies_bouldin(davies_bouldin_index)}"
-        )
-
-
-# =========================================================
-# 14. KIỂM TRA NGUỒN DỮ LIỆU
-# =========================================================
-with st.expander(
-    "Kiểm tra nguồn thông tin mô hình",
-    expanded=False,
-):
-    st.write(
-        "**API:** `/model-info`"
-    )
-
-    st.write(
-        "**Ảnh Elbow:**",
-        str(ELBOW_IMAGE_PATH),
-    )
-
-    st.write(
-        "**Ảnh PCA:**",
-        str(PCA_IMAGE_PATH),
-    )
-
-    st.write(
-        "**Ảnh Silhouette:**",
-        str(SILHOUETTE_IMAGE_PATH),
-    )
-
-    st.write(
-        "**Dữ liệu API nhận được:**"
-    )
-
-    st.json(model_info)

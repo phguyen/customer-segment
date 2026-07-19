@@ -101,7 +101,7 @@ kpi_2.metric(
 kpi_3.metric(
     "Chi tiêu trung bình",
     (
-        f"{average_monetary:,.0f} ₫"
+        f"{average_monetary:,.0f} $"
         if pd.notna(average_monetary)
         else "0 ₫"
     ),
@@ -113,27 +113,18 @@ kpi_3.metric(
 # =========================================================
 st.subheader("Tìm kiếm và bộ lọc")
 
-filter_col_1, filter_col_2 = st.columns(2)
+segment_options = sorted(
+    history_df["cluster_label"]
+    .dropna()
+    .astype(str)
+    .unique()
+    .tolist()
+)
 
-with filter_col_1:
-    search_keyword = st.text_input(
-        "Tìm kiếm phân khúc",
-        placeholder="Ví dụ: VIP",
-    )
-
-with filter_col_2:
-    segment_options = sorted(
-        history_df["cluster_label"]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-
-    selected_segments = st.multiselect(
-        "Lọc theo phân khúc",
-        options=segment_options,
-    )
+selected_segments = st.multiselect(
+    "Lọc theo phân khúc",
+    options=segment_options,
+)
 
 
 # =========================================================
@@ -171,18 +162,10 @@ else:
 # =========================================================
 filtered_df = history_df.copy()
 
-if search_keyword.strip():
-    keyword = search_keyword.strip()
-
+# Lọc theo danh sách phân khúc được chọn từ thanh multiselect
+if selected_segments:
     filtered_df = filtered_df[
-        filtered_df["cluster_label"]
-        .astype(str)
-        .str.contains(
-            keyword,
-            case=False,
-            na=False,
-            regex=False,
-        )
+        filtered_df["cluster_label"].isin(selected_segments)
     ]
 
 if selected_segments:
@@ -226,35 +209,6 @@ average_recency = (
     .mean()
 )
 
-result_1, result_2, result_3, result_4 = st.columns(4)
-
-result_1.metric(
-    "Bản ghi hiển thị",
-    f"{len(filtered_df):,}",
-)
-
-result_2.metric(
-    "Phân khúc xuất hiện",
-    f"{filtered_df['cluster_label'].nunique():,}",
-)
-
-result_3.metric(
-    "Chi tiêu trung bình",
-    (
-        f"{filtered_average:,.0f} ₫"
-        if pd.notna(filtered_average)
-        else "0 ₫"
-    ),
-)
-result_4.metric(
-    "Recency TB",
-    (
-        f"{average_recency:.0f} ngày"
-        if pd.notna(average_recency)
-        else "—"
-    ),
-)
-
 
 # =========================================================
 # 9. BẢNG DỮ LIỆU
@@ -262,6 +216,7 @@ result_4.metric(
 st.subheader("Danh sách lịch sử")
 
 display_columns = [
+    "customer_id",
     "created_at",
     "recency",
     "frequency",
@@ -295,6 +250,11 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
     column_config={
+        "customer_id": (
+            st.column_config.TextColumn(
+                "Mã khách hàng",
+            )
+        ),
         "created_at": (
             st.column_config.DatetimeColumn(
                 "Thời gian phân tích",
@@ -303,20 +263,20 @@ st.dataframe(
         ),
         "recency": (
             st.column_config.NumberColumn(
-                "Recency",
+                "Lần cuối mua",
                 format="%.0f ngày",
             )
         ),
         "frequency": (
             st.column_config.NumberColumn(
-                "Frequency",
+                "Số lần mua",
                 format="%.0f",
             )
         ),
         "monetary": (
             st.column_config.NumberColumn(
-                "Monetary",
-                format="%.0f ₫",
+                "Tổng chi tiêu",
+                format="%.0f $",
             )
         ),
         "cluster_id": (
@@ -362,16 +322,3 @@ st.download_button(
     use_container_width=True,
     disabled=download_df.empty,
 )
-
-
-# =========================================================
-# 11. QUẢN LÝ DỮ LIỆU
-# =========================================================
-with st.expander(
-    "Quản lý dữ liệu lịch sử",
-    expanded=False,
-):
-    st.info(
-        "Backend hiện mới hỗ trợ đọc lịch sử qua API `/history`. "
-        "Chưa có API xóa lịch sử trong MySQL."
-    )

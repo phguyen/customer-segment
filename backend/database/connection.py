@@ -42,8 +42,8 @@ Base = declarative_base()
 # =====================================================
 class PredictionHistory(Base):
     __tablename__ = "prediction_history"
-
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    customer_id = Column(String(50), nullable=False)
     recency = Column(Float, nullable=False)
     frequency = Column(Float, nullable=False)
     monetary = Column(Float, nullable=False)
@@ -57,10 +57,11 @@ Base.metadata.create_all(bind=engine)
 # =====================================================
 # Lưu lịch sử dự đoán
 # =====================================================
-def log_to_db(recency: float, frequency: float, monetary: float, cluster_id: int, cluster_label: str):
+def log_to_db(customer_id: str, recency: float, frequency: float, monetary: float, cluster_id: int, cluster_label: str):
     session = SessionLocal()
     try:
         row = PredictionHistory(
+            customer_id=str(customer_id),  # Ép kiểu sang chuỗi để an toàn cho cả hai luồng (đơn lẻ/file)
             recency=recency,
             frequency=frequency,
             monetary=monetary,
@@ -74,7 +75,6 @@ def log_to_db(recency: float, frequency: float, monetary: float, cluster_id: int
         raise
     finally:
         session.close()
-
 # =====================================================
 # Lấy lịch sử dự đoán
 # =====================================================
@@ -90,6 +90,7 @@ def get_prediction_history_from_db():
         return [
             {
                 "id": row.id,
+                "customer_id": row.customer_id,
                 "recency": row.recency,
                 "frequency": row.frequency,
                 "monetary": row.monetary,

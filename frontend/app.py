@@ -118,19 +118,13 @@ history_page = st.Page(
     icon=":material/history:",
 )
 
-navigation = st.navigation(
-    {
-        "PHÂN TÍCH KHÁCH HÀNG": [
-            dashboard_page,
-            single_page,
-            batch_page,
-        ],
-        "QUẢN LÝ HỆ THỐNG": [
-            model_page,
-            history_page,
-        ],
-    }
-)
+navigation = st.navigation([
+    dashboard_page,
+    single_page,
+    batch_page,
+    model_page,
+    history_page,
+])
 
 with st.sidebar:
     st.markdown(
@@ -148,7 +142,7 @@ with st.sidebar:
     st.divider()
 
     st.caption("TRẠNG THÁI HỆ THỐNG")
-    st.success("Giao diện đang hoạt động")
+    st.success("Đang hoạt động")
 
     
 

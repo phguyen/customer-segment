@@ -58,9 +58,10 @@ if os.path.exists(THRESHOLD_JSON_PATH):
 # 2. ĐỊNH NGHĨA ĐỊNH DẠNG DỮ LIỆU ĐẦU VÀO CHO DỰ ĐOÁN ĐƠN LẺ
 # -------------------------------------------------------------------------
 class SinglePredictRequest(BaseModel):
+    customer_id: str = Field(..., description="Mã định danh khách hàng", example="CUST001")
     last_purchase_date: str = Field(..., description="Ngày mua hàng cuối cùng (YYYY-MM-DD)", example="2011-12-01")
     frequency: float = Field(..., description="Tổng số hóa đơn mua hàng", example=5.0)
-    monetary: float = Field(..., description="Tổng số tiền chi tiêu tích lũy", example=2500000.0)
+    monetary: float = Field(..., description="Tổng số tiền chi tiêu tích lũy ($)", example=2500)
 
 
 # -------------------------------------------------------------------------
@@ -117,8 +118,14 @@ def predict_customer_segment(data: SinglePredictRequest):
 
         persona_info = persona_map.get(str(cluster_id), {"persona": f"Nhóm khách hàng {cluster_id}", "description": "N/A"})
 
-        log_to_db(float(recency_days), data.frequency, data.monetary, cluster_id, persona_info["persona"])
-
+        log_to_db(
+                    customer_id=str(data.customer_id),
+                    recency=float(recency_days),
+                    frequency=float(data.frequency),
+                    monetary=float(data.monetary),
+                    cluster_id=cluster_id,
+                    cluster_label=persona_info["persona"]
+                )
         return {
             "cluster_id": cluster_id,
             "persona": persona_info["persona"],
@@ -225,6 +232,7 @@ def predict_batch_csv(file: UploadFile = File(...)):
             persona_info = persona_map.get(str(cluster_id), {"persona": f"Nhóm khách hàng {cluster_id}", "description": "N/A"})
 
             log_to_db(
+                customer_id=str(row['CustomerID']),
                 recency=float(row['Recency']),
                 frequency=float(row['Frequency']),
                 monetary=float(row['Monetary']),

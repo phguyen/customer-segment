@@ -144,6 +144,7 @@ def get_model_info() -> dict:
 # 6. DỰ ĐOÁN ĐƠN LẺ
 # =========================================================
 def predict_customer(
+    customer_id: str,
     last_purchase_date: date | datetime | str,
     frequency: float,
     monetary: float,
@@ -158,6 +159,7 @@ def predict_customer(
         date_string = str(last_purchase_date)
 
     payload = {
+        "customer_id": customer_id,
         "last_purchase_date": date_string,
         "frequency": float(frequency),
         "monetary": float(monetary),
@@ -210,6 +212,7 @@ def load_prediction_history() -> pd.DataFrame:
 
     required_columns = [
         "id",
+        "customer_id",
         "recency",
         "frequency",
         "monetary",

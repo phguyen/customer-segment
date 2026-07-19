@@ -177,8 +177,7 @@ st.markdown(
 st.title("Phân nhóm khách hàng đơn lẻ")
 
 st.caption(
-    "Xác định phân khúc khách hàng bằng mô hình K-Means "
-    "dựa trên ba chỉ số Recency, Frequency và Monetary."
+    "Nhập thông tin từng khách hàng để phân tích"
 )
 
 
@@ -226,8 +225,7 @@ with input_col:
         st.subheader("Thông tin khách hàng")
 
         st.caption(
-            "Nhập thông tin mua hàng để backend tính Recency "
-            "và dự đoán phân khúc khách hàng."
+            "Nhập thông tin khách hàng để dự đoán phân khúc."
         )
 
         with st.form(
@@ -236,10 +234,9 @@ with input_col:
         ):
             customer_id = st.text_input(
                 "Mã khách hàng",
-                placeholder="Ví dụ: CUST001",
+                placeholder="Ví dụ: CHI_AN",
                 help=(
-                    "Mã khách hàng hiện chỉ dùng để hiển thị "
-                    "trên giao diện vì backend chưa lưu trường này."
+                    "Dùng để định danh và lưu trữ kết quả dự đoán của khách hàng."
                 ),
             )
 
@@ -251,7 +248,7 @@ with input_col:
             )
 
             frequency = st.number_input(
-                "Tổng số lần mua hàng (Frequency)",
+                "Tổng số lần mua hàng",
                 min_value=1,
                 value=1,
                 step=1,
@@ -259,7 +256,7 @@ with input_col:
             )
 
             monetary = st.number_input(
-                "Tổng số tiền đã chi tiêu (Monetary)",
+                "Tổng số tiền đã chi tiêu",
                 min_value=0.0,
                 value=0.0,
                 step=100_000.0,
@@ -315,6 +312,7 @@ if submitted:
         ):
             try:
                 api_result = predict_customer(
+                    customer_id=clean_customer_id,
                     last_purchase_date=last_purchase_date,
                     frequency=frequency,
                     monetary=monetary,
@@ -601,73 +599,4 @@ with result_col:
                         f"{recommendation}**"
                     )
 
-            with st.expander(
-                "Thông tin hệ thống",
-                expanded=False,
-            ):
-                st.write(
-                    "**Nguồn dự đoán:** "
-                    "FastAPI Backend"
-                )
-
-                st.write(
-                    "**Lịch sử:** "
-                    "Backend tự động lưu vào MySQL"
-                )
-
-                try:
-                    model_info = get_model_info()
-
-                    algorithm = get_model_value(
-                        model_info,
-                        [
-                            "algorithm",
-                            "Algorithm",
-                            "model",
-                            "model_name",
-                            "Thuật toán",
-                        ],
-                        default="K-Means",
-                    )
-
-                    number_of_clusters = get_model_value(
-                        model_info,
-                        [
-                            "n_clusters",
-                            "number_of_clusters",
-                            "clusters",
-                            "Số cụm",
-                            "so_cum",
-                        ],
-                    )
-
-                    model_status = get_model_value(
-                        model_info,
-                        [
-                            "status",
-                            "Status",
-                            "Trạng thái",
-                        ],
-                        default="Đã kết nối",
-                    )
-
-                    st.write(
-                        "**Thuật toán:**",
-                        algorithm,
-                    )
-
-                    st.write(
-                        "**Số cụm:**",
-                        number_of_clusters,
-                    )
-
-                    st.write(
-                        "**Trạng thái:**",
-                        model_status,
-                    )
-
-                except Exception as error:
-                    st.caption(
-                        "Không tải được thông tin chi tiết "
-                        f"của model: {error}"
-                    )
+            

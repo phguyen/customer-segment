@@ -12,7 +12,7 @@ st.title("Tổng quan khách hàng")
 
 st.caption(
     "Theo dõi số lượt phân tích, giá trị RFM và "
-    "phân bố các nhóm khách hàng từ dữ liệu API."
+    "phân khúc của khách hàng."
 )
 
 
@@ -144,7 +144,7 @@ if history_df.empty:
     )
 
     placeholder_1.metric(
-        "Lượt phân tích",
+        "Số khách hàng đã phân tích",
         "0"
     )
 
@@ -152,17 +152,6 @@ if history_df.empty:
         "Phân khúc",
         "0"
     )
-
-    placeholder_3.metric(
-        "Frequency trung bình",
-        "0"
-    )
-
-    placeholder_4.metric(
-        "Tổng Monetary",
-        "0 ₫"
-    )
-
     st.stop()
 
 
@@ -261,7 +250,7 @@ if search_cluster.strip():
 # 7. KPI TỔNG QUAN
 # =========================================================
 total_predictions = len(filtered_df)
-
+total_customer= len(filtered_df["ID"].unique())
 total_clusters = (
     filtered_df["Cluster"]
     .dropna()
@@ -281,27 +270,19 @@ total_monetary = (
 )
 
 
-metric_1, metric_2, metric_3, metric_4 = st.columns(4)
+left_space, metric_1, metric_2, right_space = st.columns([1, 2, 2, 1])
 
-metric_1.metric(
-    "Lượt phân tích",
-    f"{total_predictions:,}"
-)
+with metric_1:
+    st.metric(
+        "Số khách hàng đã phân tích",
+        f"{total_customer:,}"
+    )
 
-metric_2.metric(
-    "Phân khúc",
-    f"{total_clusters:,}"
-)
-
-metric_3.metric(
-    "Frequency trung bình",
-    f"{average_frequency:,.1f}"
-)
-
-metric_4.metric(
-    "Tổng Monetary",
-    format_currency(total_monetary)
-)
+with metric_2:
+    st.metric(
+        "Số phân khúc",
+        f"{total_clusters:,}"
+    )
 
 
 st.divider()
@@ -319,7 +300,7 @@ chart_col_1, chart_col_2 = st.columns(
 with chart_col_1:
     with st.container(border=True):
         st.subheader(
-            "Số lượt phân tích theo phân khúc"
+            "Số lượng từng phân khúc"
         )
 
         cluster_distribution = (
@@ -354,7 +335,7 @@ with chart_col_1:
 with chart_col_2:
     with st.container(border=True):
         st.subheader(
-            "Monetary trung bình theo phân khúc"
+            "Chi tiêu trung bình theo phân khúc"
         )
 
         monetary_by_cluster = (
@@ -510,86 +491,6 @@ with st.container(border=True):
             }
         )
 
-
-# =========================================================
-# 11. THỐNG KÊ CHI TIẾT TỪNG PHÂN KHÚC
-# =========================================================
-with st.container(border=True):
-    st.subheader(
-        "Thống kê chi tiết theo phân khúc"
-    )
-
-    cluster_summary = (
-        filtered_df.groupby(
-            [
-                "Cluster",
-                "ClusterName"
-            ],
-            dropna=False
-        )
-        .agg(
-            SoLuotPhanTich=(
-                "ID",
-                "count"
-            ),
-            RecencyThapNhat=(
-                "Recency",
-                "min"
-            ),
-            RecencyCaoNhat=(
-                "Recency",
-                "max"
-            ),
-            TongMonetary=(
-                "Monetary",
-                "sum"
-            )
-        )
-        .reset_index()
-    )
-
-    if cluster_summary.empty:
-        st.info(
-            "Không có dữ liệu thống kê phù hợp."
-        )
-
-    else:
-        cluster_summary["Cluster"] = (
-            cluster_summary["Cluster"]
-            .fillna(-1)
-            .astype(int)
-        )
-
-        st.dataframe(
-            cluster_summary,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Cluster": st.column_config.NumberColumn(
-                    "Mã cụm",
-                    format="%d"
-                ),
-                "ClusterName": "Tên phân khúc",
-                "SoLuotPhanTich": st.column_config.NumberColumn(
-                    "Số lượt phân tích",
-                    format="%d"
-                ),
-                "RecencyThapNhat": st.column_config.NumberColumn(
-                    "Recency thấp nhất",
-                    format="%.0f ngày"
-                ),
-                "RecencyCaoNhat": st.column_config.NumberColumn(
-                    "Recency cao nhất",
-                    format="%.0f ngày"
-                ),
-                "TongMonetary": st.column_config.NumberColumn(
-                    "Tổng Monetary",
-                    format="%.0f ₫"
-                )
-            }
-        )
-
-
 # =========================================================
 # 12. LỊCH SỬ PHÂN TÍCH GẦN NHẤT
 # =========================================================
@@ -692,13 +593,3 @@ with st.container(border=True):
                 "ClusterName": "Tên phân khúc"
             }
         )
-
-
-# =========================================================
-# 13. KIỂM TRA DỮ LIỆU API
-# =========================================================
-with st.expander(
-    "Xem dữ liệu API",
-    expanded=False
-):
-    st.json(api_result["data"])
