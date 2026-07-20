@@ -23,4 +23,7 @@ services:
       API_BASE_URL: http://backend:8000
     depends_on:
       - backend
+    volumes:
+      - ./notebooks:/app/notebooks:ro
     restart: unless-stopped
+
